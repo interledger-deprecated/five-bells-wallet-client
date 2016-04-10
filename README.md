@@ -10,18 +10,20 @@
 
 This is a client for the [`five-bells-wallet`](https://github.com/interledger/five-bells-wallet).
 
-To use it with a hosted demo wallet, create an account on [red.ilpdemo.org](https://red.ilpdemo.org) or [blue.ilpdemo.org](https://blue.ilpdemo.org).
+To use it with a hosted demo wallet, create an account on [red.ilpdemo.org](https://red.ilpdemo.org) or [blue.ilpdemo.org](https://blue.ilpdemo.org) (it doesn't matter which because they're connected via the [Interledger Protocol](https://interledger.org)!).
 
 ```js
 'use strict'
 
-const WalletClient = require('five-bells-wallet-client')
+const WalletClient = require('.')
 const client = new WalletClient({
   address: 'alice@red.ilpdemo.org',
   password: 'alice'
 })
 client.connect()
   .then(function () {
+    console.log('Client connected')
+
     client.sendPayment({
       destinationAccount: 'bob@blue.ilpdemo.org', // Look! That's an account on a different ledger!
       destinationAmount: '10', // Or you can set a sourceAmount instead
@@ -31,6 +33,9 @@ client.connect()
     })
     .then(function (payment) {
       console.log('Sent payment: ', payment)
+    })
+    .catch(function (err) {
+      console.log('Error sending payment: ', err)
     })
   })
 client.on('incoming', function (transfer) {
