@@ -33,55 +33,76 @@ export default class WalletClient extends EventEmitter {
     }
 
     this.account = null
-    this.walletSocketIoUri = null
+    this.socketIOUri = null
     // TODO get the username from the WebFinger results
     this.username = opts.address.split('@')[0]
     this.socket = null
     // <destinationAccount>: { <destinationAmount>: { sourceAmount: 10, expiresAt: '<date>' } }
     this.ratesCache = {}
-    this.ready = false
+    this.connected = false
   }
 
   connect () {
     const _this = this
-    debug('Account address:', this.address)
-    return WalletClient.webfingerAddress(this.address)
-      .then(({ account, socketIOUri }) => {
-        _this.account = account
-        _this.walletSocketIoUri = socketIOUri
+    return new Promise(function (resolve, reject) {
+      WalletClient.webfingerAddress(_this.address)
+        .then(({ account, socketIOUri }) => {
+          _this.account = account
+          _this.socketIOUri = socketIOUri
 
-        // It's important to parse the URL and pass the parts in separately
-        // otherwise, socket.io thinks the path is a namespace http://socket.io/docs/rooms-and-namespaces/
-        const parsed = url.parse(_this.walletSocketIoUri)
-        const host = parsed.protocol + '//' + parsed.host
-        debug('Attempting to connect to wallet host: ' + host + ' path: ' + parsed.path)
-        _this.socket = socket(host, { path: parsed.path })
-        _this.socket.on('connect', () => {
-          debug('Connected to wallet API socket.io')
-          _this.socket.emit('unsubscribe', _this.username)
-          _this.socket.emit('subscribe', _this.username)
-          _this.ready = true
-          _this.emit('ready')
+          // It's important to parse the URL and pass the parts in separately
+          // otherwise, socket.io thinks the path is a namespace http://socket.io/docs/rooms-and-namespaces/
+          const parsed = url.parse(_this.socketIOUri)
+          const host = parsed.protocol + '//' + parsed.host
+          debug('Attempting to connect to wallet host: ' + host + ' path: ' + parsed.path)
+          _this.socket = socket(host, { path: parsed.path })
+          _this.socket.on('connect', () => {
+            debug('Connected to wallet API socket.io')
+            _this.socket.emit('unsubscribe', _this.username)
+            _this.socket.emit('subscribe', _this.username)
+            _this.connected = true
+            _this.emit('connect')
+            resolve()
+          })
+          _this.socket.on('disconnect', () => {
+            _this.connected = false
+            debug('Disconnected from wallet')
+            reject()
+          })
+          _this.socket.on('connect_error', (err) => {
+            debug('Connection error', err, err.stack)
+            reject(err)
+          })
+          _this.socket.on('payment', _this._handleNotification.bind(_this))
         })
-        _this.socket.on('disconnect', () => {
-          _this.ready = false
-          debug('Disconnected from wallet')
+        .catch((err) => {
+          debug(err)
         })
-        _this.socket.on('connect_error', (err) => {
-          debug('Connection error', err, err.stack)
+    })
+  }
+
+  isConnected () {
+    return this.connected
+  }
+
+  getAccount () {
+    const _this = this
+    if (this.account) {
+      return Promise.resolve(this.account)
+    } else {
+      return new Promise((resolve, reject) => {
+        _this.once('connect', () => {
+          resolve(this.account)
         })
-        _this.socket.on('payment', _this._handleNotification.bind(_this))
       })
-      .catch((err) => {
-        debug(err)
-      })
+    }
   }
 
   disconnect () {
     this.socket.emit('unsubscribe', this.username)
   }
 
-  normalizeAmount (params) {
+  convertAmount (params) {
     const _this = this
     // TODO clean up this caching system
     const cacheRateThreshold = (new BigNumber(params.destinationAmount)).div(100)
@@ -138,11 +159,11 @@ export default class WalletClient extends EventEmitter {
       sourcePassword: this.password
     }
     debug('sendPayment', paramsToSend)
-    if (this.ready) {
+    if (this.connected) {
       return sendPayment(paramsToSend)
     } else {
       return new Promise((resolve, reject) => {
-        this.once('ready', resolve)
+        this.once('connect', resolve)
       })
         .then(() => {
           return sendPayment(paramsToSend)
@@ -150,51 +171,67 @@ export default class WalletClient extends EventEmitter {
     }
   }
 
-  _handleNotification (payment) {
+  _handleNotification (notification) {
     const _this = this
-    if (payment.transfers) {
-      request.get(payment.transfers)
+    if (notification.source_account === this.account) {
+      this.emit('outgoing', notification)
+
+      if (this.listenerCount('outgoing_fulfillment') > 0) {
+        Promise.all([
+          this.getTransfer(notification.transfers),
+          this.getTransferFulfillment(notification.transfers)
+        ])
+        .then((results) => {
+          _this.emit('outgoing_fulfillment', results[0], results[1])
+        })
+        .catch((err) => {
+          debug('Error getting outgoing_fulfillment: ' + err.message || err)
+        })
+      }
+    } else if (notification.destination_account === this.account) {
+      this.emit('incoming', notification)
+
+      if (this.listenerCount('incoming_transfer') > 0) {
+        this.getTransfer(notification.transfers)
+          .then((transfer) => {
+            _this.emit('incoming_transfer', transfer)
+          })
+          .catch((err) => {
+            debug('Error getting incoming_transfer: ' + err.message || err)
+          })
+      }
+    }
+  }
+
+  getTransfer (transferId) {
+    const _this = this
+    return new Promise((resolve, reject) => {
+      request.get(transferId)
         .auth(_this.username, _this.password)
         .end((err, res) => {
           if (err) {
-            debug('Error getting transfer', err)
-            return
+            return reject(err)
           }
-          const transfer = res.body
-          debug('got notification of transfer ' + payment.transfers, transfer)
-          if (transfer.state === 'executed') {
-            // Look for incoming credits or outgoing debits involving us
-            for (let credit of transfer.credits) {
-              if (credit.account === this.account) {
-                _this.emit('incoming', credit)
-              }
-            }
-            // Look for outgoing transfers that were executed
-            for (let debit of transfer.debits) {
-              if (debit.account === this.account) {
-                request.get(transfer.id + '/fulfillment')
-                  .auth(_this.username, _this.password)
-                  .end((err, res) => {
-                    if (err) {
-                      debug('Error getting transfer fulfillment', err)
-                      return
-                    }
 
-                    const fulfillment = res.body
-                    _this.emit('outgoing_executed', debit, fulfillment)
-                  })
-              }
-            }
-          } else if (transfer.state === 'rejected') {
-            // TODO use notification of outgoing payments being rejected to subtract from amount sent to peer
-            for (let debit of transfer.debits) {
-              if (debit.account === this.account) {
-                _this.emit('outgoing_rejected', debit)
-              }
-            }
-          }
+          resolve(res.body)
         })
-    }
+    })
+  }
+
+  getTransferFulfillment (transferId) {
+    const fulfillmentUri = transferId + '/fulfillment'
+    const _this = this
+    return new Promise((resolve, reject) => {
+      request.get(fulfillmentUri)
+        .auth(_this.username, _this.password)
+        .end((err, res) => {
+          if (err) {
+            return reject(err)
+          }
+
+          resolve(res.body)
+        })
+    })
   }
 
   // Returns a promise that resolves to the account details
