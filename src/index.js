@@ -153,22 +153,37 @@ export default class WalletClient extends EventEmitter {
   }
 
   sendPayment (params) {
-    const paramsToSend = {
-      ...params,
-      sourceAccount: this.account,
-      sourcePassword: this.password
-    }
-    debug('sendPayment', paramsToSend)
-    if (this.connected) {
-      return sendPayment(paramsToSend)
-    } else {
-      return new Promise((resolve, reject) => {
-        this.once('connect', resolve)
+    const _this = this
+    return Promise.resolve()
+      .then(() => {
+        if (params.destinationAccount.indexOf('@') === -1) {
+          return params
+        } else {
+          return WalletClient.webfingerAddress(params.destinationAccount)
+            .then(({ account }) => ({
+              ...params,
+              destinationAccount: account
+            }))
+        }
       })
-        .then(() => {
+      .then((params) => {
+        const paramsToSend = {
+          ...params,
+          sourceAccount: _this.account,
+          sourcePassword: _this.password
+        }
+        debug('sendPayment', paramsToSend)
+        if (_this.connected) {
           return sendPayment(paramsToSend)
-        })
-    }
+        } else {
+          return new Promise((resolve, reject) => {
+            _this.once('connect', resolve)
+          })
+            .then(() => {
+              return sendPayment(paramsToSend)
+            })
+        }
+      })
   }
 
   _handleNotification (notification) {
