@@ -15,7 +15,7 @@ To use it with a hosted demo wallet, create an account on [red.ilpdemo.org](http
 ```js
 'use strict'
 
-const WalletClient = require('.')
+const WalletClient = require('five-bells-wallet-client')
 const client = new WalletClient({
   address: 'alice@red.ilpdemo.org',
   password: 'alice'
