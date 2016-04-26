@@ -8,7 +8,7 @@
     "build": "babel src -d build",
     "watch": "babel src -w -d build",
     "prepublish": "npm run build",
-    "postinstall": "npm run build",
+    "postinstall": "postinstall-build build 'npm run build'",
     "lint": "standard src/*"
   },
   "keywords": [
@@ -23,6 +23,7 @@
     "bignumber.js": "^2.3.0",
     "five-bells-sender": "https://github.com/interledger/five-bells-sender.git#task/remove-validation",
     "moment": "^2.12.0",
+    "postinstall-build": "^0.2.1",
     "socket.io-client": "^1.4.5",
     "superagent": "^1.8.1",
     "webfinger.js": "^2.3.2"
