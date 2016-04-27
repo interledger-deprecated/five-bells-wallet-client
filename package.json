@@ -21,7 +21,6 @@
   "license": "ISC",
   "dependencies": {
     "bignumber.js": "^2.3.0",
-    "five-bells-sender": "https://github.com/interledger/five-bells-sender.git#task/remove-validation",
     "moment": "^2.12.0",
     "postinstall-build": "^0.2.1",
     "socket.io-client": "^1.4.5",

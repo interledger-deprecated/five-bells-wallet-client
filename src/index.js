@@ -2,7 +2,6 @@
 
 import socket from 'socket.io-client'
 import { EventEmitter } from 'events'
-import sendPayment, { findPath } from 'five-bells-sender'
 import request from 'superagent'
 import WebFinger from 'webfinger.js'
 import Debug from 'debug'
@@ -12,6 +11,13 @@ import BigNumber from 'bignumber.js'
 import url from 'url'
 
 const RATE_CACHE_REFRESH = 60000
+
+const WEBFINGER_RELS = {
+  'http://webfinger.net/rel/ledgerAccount': 'ledgerAccount',
+  'http://webfinger.net/rel/socketIOUri': 'socketIOUri',
+  'http://webfinger.net/rel/paymentUri': 'paymentUri',
+  'http://webfinger.net/rel/pathfindUri': 'pathfindUri'
+}
 
 /**
  * Client for connecting to the five-bells-wallet
@@ -32,8 +38,10 @@ export default class WalletClient extends EventEmitter {
       throw new Error('Must instantiate WalletClient with five-bells-wallet password')
     }
 
-    this.account = null
+    this.accountUri = null
     this.socketIOUri = null
+    this.paymentUri = null
+    this.pathfindUri = null
     // TODO get the username from the WebFinger results
     this.username = opts.address.split('@')[0]
     this.socket = null
@@ -46,9 +54,11 @@ export default class WalletClient extends EventEmitter {
     const _this = this
     return new Promise(function (resolve, reject) {
       WalletClient.webfingerAddress(_this.address)
-        .then(({ account, socketIOUri }) => {
-          _this.account = account
+        .then(({ account, socketIOUri, paymentUri, pathfindUri }) => {
+          _this.accountUri = account
           _this.socketIOUri = socketIOUri
+          _this.paymentUri = paymentUri
+          _this.pathfindUri = pathfindUri
 
           // It's important to parse the URL and pass the parts in separately
           // otherwise, socket.io thinks the path is a namespace http://socket.io/docs/rooms-and-namespaces/
@@ -87,12 +97,12 @@ export default class WalletClient extends EventEmitter {
 
   getAccount () {
     const _this = this
-    if (this.account) {
-      return Promise.resolve(this.account)
+    if (this.accountUri) {
+      return Promise.resolve(this.accountUri)
     } else {
       return new Promise((resolve, reject) => {
         _this.once('connect', () => {
-          resolve(this.account)
+          resolve(this.accountUri)
         })
       })
     }
@@ -120,9 +130,15 @@ export default class WalletClient extends EventEmitter {
       }
     }
 
-    return findPath({
-      ...params,
-      sourceAccount: this.account
+    const pathfindParams = {
+      destination: params.destinationAccount,
+      destination_amount: params.destinationAmount,
+      source_amount: params.sourceAmount
+    }
+    return new Promise((resolve, reject) => {
+      request.post(_this.pathfindUri)
+        .auth(_this.username, _this.password)
+        .send
     })
     .then((path) => {
       if (Array.isArray(path) && path.length > 0) {
@@ -154,41 +170,37 @@ export default class WalletClient extends EventEmitter {
 
   sendPayment (params) {
     const _this = this
-    return Promise.resolve()
-      .then(() => {
-        if (params.destinationAccount.indexOf('@') === -1) {
-          return params
-        } else {
-          return WalletClient.webfingerAddress(params.destinationAccount)
-            .then(({ account }) => ({
-              ...params,
-              destinationAccount: account
-            }))
-        }
-      })
-      .then((params) => {
-        const paramsToSend = {
-          ...params,
-          sourceAccount: _this.account,
-          sourcePassword: _this.password
-        }
-        debug('sendPayment', paramsToSend)
-        if (_this.connected) {
-          return sendPayment(paramsToSend)
-        } else {
-          return new Promise((resolve, reject) => {
-            _this.once('connect', resolve)
+    const paramsToSend = {
+      destination_account: params.destinationAccount,
+      destination_amount: params.destinationAmount,
+      source_amount: params.sourceAmount,
+      source_memo: params.sourceMemo,
+      destination_memo: params.destinationMemo
+    }
+    if (_this.connected) {
+      debug('sendPayment', paramsToSend)
+      return new Promise((resolve, reject) => {
+        request.put(_this.paymentUri)
+          .auth(_this.username, _this.password)
+          .send(paramsToSend)
+          .end((err, res) => {
+            if (err) {
+              return reject(err)
+            }
+            resolve(res)
           })
-            .then(() => {
-              return sendPayment(paramsToSend)
-            })
-        }
       })
+    } else {
+      return new Promise((resolve, reject) => {
+        _this.once('connect', resolve)
+      })
+      .then(_this.sendPayment.bind(_this, paramsToSend))
+    }
   }
 
   _handleNotification (notification) {
     const _this = this
-    if (notification.source_account === this.account) {
+    if (notification.source_account === this.accountUri) {
       this.emit('outgoing', notification)
 
       if (this.listenerCount('outgoing_fulfillment') > 0) {
@@ -203,7 +215,7 @@ export default class WalletClient extends EventEmitter {
           debug('Error getting outgoing_fulfillment: ' + err.message || err)
         })
       }
-    } else if (notification.destination_account === this.account) {
+    } else if (notification.destination_account === this.accountUri) {
       this.emit('incoming', notification)
 
       if (this.listenerCount('incoming_transfer') > 0) {
@@ -262,11 +274,8 @@ export default class WalletClient extends EventEmitter {
         let webFingerDetails = {}
         try {
           for (let link of res.object.links) {
-            if (link.rel === 'https://interledger.org/rel/ledgerAccount') {
-              webFingerDetails.account = link.href
-            } else if (link.rel === 'https://interledger.org/rel/socketIOUri') {
-              webFingerDetails.socketIOUri = link.href
-            }
+            const key = WEBFINGER_RELS[link.rel]
+            webFingerDetails[key] = link.href
           }
         } catch (err) {
           return reject(new Error('Error parsing webfinger response' + err.message))
