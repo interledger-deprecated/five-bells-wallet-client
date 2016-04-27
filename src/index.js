@@ -10,6 +10,7 @@ const moment = require('moment')
 const BigNumber = require('bignumber.js')
 const url = require('url')
 const inherits = require('inherits')
+const uuid = require('node-uuid')
 
 const RATE_CACHE_REFRESH = 60000
 
@@ -187,7 +188,7 @@ WalletClient.prototype.sendPayment = function (params) {
   if (_this.connected) {
     debug('sendPayment', paramsToSend)
     return new Promise((resolve, reject) => {
-      request.put(_this.paymentUri)
+      request.put(_this.paymentUri + '/' + uuid.v4())
         .auth(_this.username, _this.password)
         .send(paramsToSend)
         .end((err, res) => {
