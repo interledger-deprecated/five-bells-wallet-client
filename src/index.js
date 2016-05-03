@@ -56,11 +56,11 @@ WalletClient.prototype.connect = function () {
   const _this = this
   return new Promise(function (resolve, reject) {
     WalletClient.webfingerAddress(_this.address)
-      .then(({ account, socketIOUri, paymentUri, pathfindUri }) => {
-        _this.accountUri = account
-        _this.socketIOUri = socketIOUri
-        _this.paymentUri = paymentUri
-        _this.pathfindUri = pathfindUri
+      .then(function (webFingerDetails) {
+        _this.accountUri = webFingerDetails.account
+        _this.socketIOUri = webFingerDetails.socketIOUri
+        _this.paymentUri = webFingerDetails.paymentUri || webFingerDetails.socketIOUri.replace('socket.io', 'payments')
+        _this.pathfindUri = webFingerDetails.pathfindUri || webFingerDetails.socketIOUri.replace('socket.io', 'pathFind')
 
         // It's important to parse the URL and pass the parts in separately
         // otherwise, socket.io thinks the path is a namespace http://socket.io/docs/rooms-and-namespaces/
@@ -68,7 +68,7 @@ WalletClient.prototype.connect = function () {
         const host = parsed.protocol + '//' + parsed.host
         debug('Attempting to connect to wallet host: ' + host + ' path: ' + parsed.path)
         _this.socket = socket(host, { path: parsed.path })
-        _this.socket.on('connect', () => {
+        _this.socket.on('connect', function () {
           debug('Connected to wallet API socket.io')
           _this.socket.emit('unsubscribe', _this.username)
           _this.socket.emit('subscribe', _this.username)
@@ -76,18 +76,18 @@ WalletClient.prototype.connect = function () {
           _this.emit('connect')
           resolve()
         })
-        _this.socket.on('disconnect', () => {
+        _this.socket.on('disconnect', function () {
           _this.connected = false
           debug('Disconnected from wallet')
           reject()
         })
-        _this.socket.on('connect_error', (err) => {
+        _this.socket.on('connect_error', function (err) {
           debug('Connection error', err, err.stack)
           reject(err)
         })
         _this.socket.on('payment', _this._handleNotification.bind(_this))
       })
-      .catch((err) => {
+      .catch(function (err) {
         debug(err)
       })
   })
@@ -102,8 +102,8 @@ WalletClient.prototype.getAccount = function () {
   if (this.accountUri) {
     return Promise.resolve(this.accountUri)
   } else {
-    return new Promise((resolve, reject) => {
-      _this.once('connect', () => {
+    return new Promise(function (resolve, reject) {
+      _this.once('connect', function () {
         resolve(this.accountUri)
       })
     })
@@ -137,7 +137,7 @@ WalletClient.prototype.convertAmount = function (params) {
     destination_amount: params.destinationAmount,
     source_amount: params.sourceAmount
   }
-  return new Promise((resolve, reject) => {
+  return new Promise(function (resolve, reject) {
     request.post(_this.pathfindUri)
       .auth(_this.username, _this.password)
       .send(pathfindParams)
@@ -148,7 +148,7 @@ WalletClient.prototype.convertAmount = function (params) {
         resolve(res.body)
       })
   })
-  .then((path) => {
+  .then(function (path) {
     if (Array.isArray(path) && path.length > 0) {
       // TODO update this for the latest sender
       const firstPayment = path[0]
@@ -170,7 +170,7 @@ WalletClient.prototype.convertAmount = function (params) {
       throw new Error('No path found %o', path)
     }
   })
-  .catch((err) => {
+  .catch(function (err) {
     debug('Error finding path %o %o', params, err)
     throw err
   })
@@ -179,19 +179,19 @@ WalletClient.prototype.convertAmount = function (params) {
 WalletClient.prototype.sendPayment = function (params) {
   const _this = this
   const paramsToSend = {
-    destination_account: params.destinationAccount,
-    destination_amount: params.destinationAmount,
-    source_amount: params.sourceAmount,
-    source_memo: params.sourceMemo,
-    destination_memo: params.destinationMemo
+    destination_account: params.destinationAccount || params.destination_account,
+    destination_amount: params.destinationAmount || params.destination_amount,
+    source_amount: params.sourceAmount || params.source_amount,
+    source_memo: params.sourceMemo || params.source_memo,
+    destination_memo: params.destinationMemo || params.destination_memo
   }
   if (_this.connected) {
     debug('sendPayment', paramsToSend)
-    return new Promise((resolve, reject) => {
+    return new Promise(function (resolve, reject) {
       request.put(_this.paymentUri + '/' + uuid.v4())
         .auth(_this.username, _this.password)
         .send(paramsToSend)
-        .end((err, res) => {
+        .end(function (err, res) {
           if (err || !res.ok) {
             return reject(err || res.body)
           }
@@ -199,7 +199,7 @@ WalletClient.prototype.sendPayment = function (params) {
         })
     })
   } else {
-    return new Promise((resolve, reject) => {
+    return new Promise(function (resolve, reject) {
       _this.once('connect', resolve)
     })
     .then(_this.sendPayment.bind(_this, paramsToSend))
@@ -216,10 +216,10 @@ WalletClient.prototype._handleNotification = function (notification) {
         this.getTransfer(notification.transfers),
         this.getTransferFulfillment(notification.transfers)
       ])
-      .then((results) => {
+      .then(function (results) {
         _this.emit('outgoing_fulfillment', results[0], results[1])
       })
-      .catch((err) => {
+      .catch(function (err) {
         debug('Error getting outgoing_fulfillment: ' + err.message || err)
       })
     }
@@ -228,10 +228,10 @@ WalletClient.prototype._handleNotification = function (notification) {
 
     if (this.listenerCount('incoming_transfer') > 0) {
       this.getTransfer(notification.transfers)
-        .then((transfer) => {
+        .then(function (transfer) {
           _this.emit('incoming_transfer', transfer)
         })
-        .catch((err) => {
+        .catch(function (err) {
           debug('Error getting incoming_transfer: ' + err.message || err)
         })
     }
@@ -240,10 +240,10 @@ WalletClient.prototype._handleNotification = function (notification) {
 
 WalletClient.prototype.getTransfer = function (transferId) {
   const _this = this
-  return new Promise((resolve, reject) => {
+  return new Promise(function (resolve, reject) {
     request.get(transferId)
       .auth(_this.username, _this.password)
-      .end((err, res) => {
+      .end(function (err, res) {
         if (err) {
           return reject(err)
         }
@@ -256,10 +256,10 @@ WalletClient.prototype.getTransfer = function (transferId) {
 WalletClient.prototype.getTransferFulfillment = function (transferId) {
   const fulfillmentUri = transferId + '/fulfillment'
   const _this = this
-  return new Promise((resolve, reject) => {
+  return new Promise(function (resolve, reject) {
     request.get(fulfillmentUri)
       .auth(_this.username, _this.password)
-      .end((err, res) => {
+      .end(function (err, res) {
         if (err) {
           return reject(err)
         }
@@ -273,8 +273,8 @@ WalletClient.prototype.getTransferFulfillment = function (transferId) {
 WalletClient.webfingerAddress = function (address) {
   const WebFingerConstructor = (typeof window === 'object' && window.WebFinger ? window.WebFinger : WebFinger)
   const webfinger = new WebFingerConstructor()
-  return new Promise((resolve, reject) => {
-    webfinger.lookup(address, (err, res) => {
+  return new Promise(function (resolve, reject) {
+    webfinger.lookup(address, function (err, res) {
       if (err) {
         return reject(new Error('Error looking up wallet address: ' + err.message))
       }
@@ -288,6 +288,7 @@ WalletClient.webfingerAddress = function (address) {
       } catch (err) {
         return reject(new Error('Error parsing webfinger response' + err.message))
       }
+      debug('Got webfinger response %o', webFingerDetails)
       resolve(webFingerDetails)
     })
   })
