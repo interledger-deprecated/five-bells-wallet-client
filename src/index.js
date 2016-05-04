@@ -185,6 +185,12 @@ WalletClient.prototype.sendPayment = function (params) {
     source_memo: params.sourceMemo || params.source_memo,
     destination_memo: params.destinationMemo || params.destination_memo
   }
+  if (paramsToSend.destination_amount) {
+    paramsToSend.destination_amount = paramsToSend.destination_amount.toString()
+  }
+  if (paramsToSend.source_amount) {
+    paramsToSend.source_amount = paramsToSend.source_amount.toString()
+  }
   if (_this.connected) {
     debug('sendPayment', paramsToSend)
     return new Promise(function (resolve, reject) {
@@ -193,7 +199,7 @@ WalletClient.prototype.sendPayment = function (params) {
         .send(paramsToSend)
         .end(function (err, res) {
           if (err || !res.ok) {
-            return reject(err || res.body)
+            return reject(err || res.error || res.body)
           }
           resolve(res.body)
         })
@@ -208,6 +214,10 @@ WalletClient.prototype.sendPayment = function (params) {
 
 WalletClient.prototype._handleNotification = function (notification) {
   const _this = this
+  debug('Got notification %o', notification)
+  if (!notification) {
+    return
+  }
   if (notification.source_account === this.accountUri) {
     this.emit('outgoing', notification)
 
@@ -283,7 +293,9 @@ WalletClient.webfingerAddress = function (address) {
       try {
         for (let link of res.object.links) {
           const key = WEBFINGER_RELS[link.rel]
-          webFingerDetails[key] = link.href
+          if (key) {
+            webFingerDetails[key] = link.href
+          }
         }
       } catch (err) {
         return reject(new Error('Error parsing webfinger response' + err.message))
