@@ -15,10 +15,10 @@ const uuid = require('node-uuid')
 const RATE_CACHE_REFRESH = 60000
 
 const WEBFINGER_RELS = {
-  'http://webfinger.net/rel/ledgerAccount': 'ledgerAccount',
-  'http://webfinger.net/rel/socketIOUri': 'socketIOUri',
-  'http://webfinger.net/rel/paymentUri': 'paymentUri',
-  'http://webfinger.net/rel/pathfindUri': 'pathfindUri'
+  'https://interledger.org/rel/ledgerAccount': 'ledgerAccount',
+  'https://interledger.org/rel/socketIOUri': 'socketIOUri',
+  'https://interledger.org/rel/paymentUri': 'paymentUri',
+  'https://interledger.org/rel/pathfindUri': 'pathfindUri'
 }
 
 /**
