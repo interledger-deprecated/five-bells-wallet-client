@@ -262,9 +262,9 @@ export default class WalletClient extends EventEmitter {
         let webFingerDetails = {}
         try {
           for (let link of res.object.links) {
-            if (link.rel === 'http://webfinger.net/rel/ledgerAccount') {
+            if (link.rel === 'https://interledger.org/rel/ledgerAccount') {
               webFingerDetails.account = link.href
-            } else if (link.rel === 'http://webfinger.net/rel/socketIOUri') {
+            } else if (link.rel === 'https://interledger.org/rel/socketIOUri') {
               webFingerDetails.socketIOUri = link.href
             }
           }
