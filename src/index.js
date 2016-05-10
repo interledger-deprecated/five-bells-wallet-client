@@ -17,7 +17,7 @@ const RATE_CACHE_REFRESH = 60000
 const WEBFINGER_RELS = {
   'https://interledger.org/rel/ledgerAccount': 'ledgerAccount',
   'https://interledger.org/rel/socketIOUri': 'socketIOUri',
-  'https://interledger.org/rel/paymentUri': 'paymentUri',
+  'https://interledger.org/rel/sender/payment': 'paymentUri',
   'https://interledger.org/rel/pathfindUri': 'pathfindUri'
 }
 
