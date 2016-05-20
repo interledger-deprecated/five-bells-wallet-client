@@ -18,7 +18,7 @@ const WEBFINGER_RELS = {
   'https://interledger.org/rel/ledgerAccount': 'ledgerAccount',
   'https://interledger.org/rel/socketIOUri': 'socketIOUri',
   'https://interledger.org/rel/sender/payment': 'paymentUri',
-  'https://interledger.org/rel/pathfindUri': 'pathfindUri'
+  'https://interledger.org/rel/sender/findPath': 'pathfindUri'
 }
 
 /**
@@ -59,8 +59,8 @@ WalletClient.prototype.connect = function () {
       .then(function (webFingerDetails) {
         _this.accountUri = webFingerDetails.account
         _this.socketIOUri = webFingerDetails.socketIOUri
-        _this.paymentUri = webFingerDetails.paymentUri || webFingerDetails.socketIOUri.replace('socket.io', 'payments')
-        _this.pathfindUri = webFingerDetails.pathfindUri || webFingerDetails.socketIOUri.replace('socket.io', 'pathFind')
+        _this.paymentUri = webFingerDetails.paymentUri
+        _this.pathfindUri = webFingerDetails.pathfindUri
 
         // It's important to parse the URL and pass the parts in separately
         // otherwise, socket.io thinks the path is a namespace http://socket.io/docs/rooms-and-namespaces/
