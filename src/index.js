@@ -54,6 +54,11 @@ inherits(WalletClient, EventEmitter)
 
 WalletClient.prototype.connect = function () {
   const _this = this
+
+  if (_this.connected) {
+    return Promise.resolve()
+  }
+
   return new Promise(function (resolve, reject) {
     WalletClient.webfingerAddress(_this.address)
       .then(function (webFingerDetails) {
@@ -178,12 +183,21 @@ WalletClient.prototype.convertAmount = function (params) {
 
 WalletClient.prototype.sendPayment = function (params) {
   const _this = this
+
+  if (!_this.connected) {
+    _this.connect()
+    return new Promise(function (resolve, reject) {
+      _this.once('connect', resolve)
+    })
+    .then(_this.sendPayment.bind(_this, params))
+  }
+
   const paramsToSend = {
-    destination_account: params.destinationAccount || params.destination_account,
-    destination_amount: params.destinationAmount || params.destination_amount,
-    source_amount: params.sourceAmount || params.source_amount,
-    source_memo: params.sourceMemo || params.source_memo,
-    destination_memo: params.destinationMemo || params.destination_memo
+    destination_account: params.destinationAccount,
+    destination_amount: params.destinationAmount,
+    source_amount: params.sourceAmount,
+    source_memo: params.sourceMemo,
+    destination_memo: params.destinationMemo
   }
   if (paramsToSend.destination_amount) {
     paramsToSend.destination_amount = paramsToSend.destination_amount.toString()
@@ -191,25 +205,18 @@ WalletClient.prototype.sendPayment = function (params) {
   if (paramsToSend.source_amount) {
     paramsToSend.source_amount = paramsToSend.source_amount.toString()
   }
-  if (_this.connected) {
-    debug('sendPayment', paramsToSend)
-    return new Promise(function (resolve, reject) {
-      request.put(_this.paymentUri + '/' + uuid.v4())
-        .auth(_this.username, _this.password)
-        .send(paramsToSend)
-        .end(function (err, res) {
-          if (err || !res.ok) {
-            return reject(err || res.error || res.body)
-          }
-          resolve(res.body)
-        })
-    })
-  } else {
-    return new Promise(function (resolve, reject) {
-      _this.once('connect', resolve)
-    })
-    .then(_this.sendPayment.bind(_this, paramsToSend))
-  }
+  debug('sendPayment', paramsToSend)
+  return new Promise(function (resolve, reject) {
+    request.put(_this.paymentUri + '/' + uuid.v4())
+      .auth(_this.username, _this.password)
+      .send(paramsToSend)
+      .end(function (err, res) {
+        if (err || !res.ok) {
+          return reject(err || res.error || res.body)
+        }
+        resolve(res.body)
+      })
+  })
 }
 
 WalletClient.prototype._handleNotification = function (notification) {
