@@ -11,6 +11,7 @@ const BigNumber = require('bignumber.js')
 const url = require('url')
 const inherits = require('inherits')
 const uuid = require('node-uuid')
+const Payment = require('./payment').Payment
 
 const RATE_CACHE_REFRESH = 60000
 
@@ -18,7 +19,7 @@ const WEBFINGER_RELS = {
   'https://interledger.org/rel/ledgerAccount': 'ledgerAccount',
   'https://interledger.org/rel/socketIOUri': 'socketIOUri',
   'https://interledger.org/rel/sender/payment': 'paymentUri',
-  'https://interledger.org/rel/sender/findPath': 'pathfindUri'
+  'https://interledger.org/rel/sender/pathfind': 'pathfindUri'
 }
 
 /**
@@ -60,12 +61,12 @@ WalletClient.prototype.connect = function () {
   }
 
   return new Promise(function (resolve, reject) {
-    WalletClient.webfingerAddress(_this.address)
+    WalletClient._webfingerAddress(_this.address)
       .then(function (webFingerDetails) {
-        _this.accountUri = webFingerDetails.account
+        _this.accountUri = webFingerDetails.ledgerAccount
         _this.socketIOUri = webFingerDetails.socketIOUri
         _this.paymentUri = webFingerDetails.paymentUri
-        _this.pathfindUri = webFingerDetails.pathfindUri
+        _this.pathfindUri = webFingerDetails.pathfindUri || _this.socketIOUri.replace('socket.io', 'payments/findPath')
 
         // It's important to parse the URL and pass the parts in separately
         // otherwise, socket.io thinks the path is a namespace http://socket.io/docs/rooms-and-namespaces/
@@ -119,6 +120,69 @@ WalletClient.prototype.disconnect = function () {
   this.socket.emit('unsubscribe', this.username)
 }
 
+WalletClient.prototype.payment = function (params) {
+  return new Payment(this, params)
+}
+
+WalletClient.prototype.send = function (params) {
+  const payment = new Payment(this, params)
+
+  if (typeof params.onQuote === 'function') {
+    payment.on('quote', params.onQuote)
+  }
+  if (typeof params.onSent === 'function') {
+    payment.on('sent', params.onSent)
+  }
+
+  return payment.quote()
+    .then(function () {
+      return payment.send()
+    })
+}
+
+WalletClient.prototype._findPath = function (params) {
+  const _this = this
+
+  if (!_this.connected) {
+    _this.connect()
+    return new Promise(function (resolve, reject) {
+      _this.once('connect', resolve)
+    })
+    .then(_this._findPath.bind(_this, params))
+  }
+
+  const pathfindParams = {
+    destination: params.destinationAccount || params.destination,
+    destination_amount: params.destinationAmount,
+    source_amount: params.sourceAmount
+  }
+
+  debug('_findPath', pathfindParams)
+
+  return new Promise(function (resolve, reject) {
+    request.post(_this.pathfindUri)
+      .auth(_this.username, _this.password)
+      .send(pathfindParams)
+      .end(function (err, res) {
+        if (err || !res.ok) {
+          return reject(err || res.body)
+        }
+
+        let result = {}
+        if (!params.sourceAmount) {
+          result.sourceAmount = res.body.source_amount || res.body.sourceAmount || res.body[0].source_transfers[0].debits[0].amount
+        }
+        if (!params.destinationAmount) {
+          result.destinationAmount = res.body.destination_amount || res.body.destinationAmount || res.body[res.body.length - 1].destination_transfers[0].credits[0].amount
+        }
+        if (Array.isArray(res.body)) {
+          result.path = res.body
+        }
+        resolve(result)
+      })
+  })
+}
+
 WalletClient.prototype.convertAmount = function (params) {
   const _this = this
   // TODO clean up this caching system
@@ -137,22 +201,7 @@ WalletClient.prototype.convertAmount = function (params) {
     }
   }
 
-  const pathfindParams = {
-    destination: params.destinationAccount,
-    destination_amount: params.destinationAmount,
-    source_amount: params.sourceAmount
-  }
-  return new Promise(function (resolve, reject) {
-    request.post(_this.pathfindUri)
-      .auth(_this.username, _this.password)
-      .send(pathfindParams)
-      .end(function (err, res) {
-        if (err || !res.ok) {
-          return reject(err || res.body)
-        }
-        resolve(res.body)
-      })
-  })
+  _this.findPath(params)
   .then(function (path) {
     if (Array.isArray(path) && path.length > 0) {
       // TODO update this for the latest sender
@@ -181,7 +230,7 @@ WalletClient.prototype.convertAmount = function (params) {
   })
 }
 
-WalletClient.prototype.sendPayment = function (params) {
+WalletClient.prototype._sendPayment = function (params) {
   const _this = this
 
   if (!_this.connected) {
@@ -189,15 +238,17 @@ WalletClient.prototype.sendPayment = function (params) {
     return new Promise(function (resolve, reject) {
       _this.once('connect', resolve)
     })
-    .then(_this.sendPayment.bind(_this, params))
+    .then(_this._sendPayment.bind(_this, params))
   }
 
-  const paramsToSend = {
-    destination_account: params.destinationAccount,
+  let paramsToSend = {
+    destination_account: params.destinationAccount || params.destination,
     destination_amount: params.destinationAmount,
     source_amount: params.sourceAmount,
     source_memo: params.sourceMemo,
-    destination_memo: params.destinationMemo
+    destination_memo: params.destinationMemo,
+    message: params.message,
+    path: params.path
   }
   if (paramsToSend.destination_amount) {
     paramsToSend.destination_amount = paramsToSend.destination_amount.toString()
@@ -205,7 +256,7 @@ WalletClient.prototype.sendPayment = function (params) {
   if (paramsToSend.source_amount) {
     paramsToSend.source_amount = paramsToSend.source_amount.toString()
   }
-  debug('sendPayment', paramsToSend)
+  debug('_sendPayment', paramsToSend)
   return new Promise(function (resolve, reject) {
     request.put(_this.paymentUri + '/' + uuid.v4())
       .auth(_this.username, _this.password)
@@ -225,13 +276,22 @@ WalletClient.prototype._handleNotification = function (notification) {
   if (!notification) {
     return
   }
+
+  const notificationToEmit = {
+    sourceAccount: notification.source_account,
+    destinationAccount: notification.destination_account,
+    sourceAmount: notification.source_amount,
+    destinationAmount: notification.destination_amount,
+    message: notification.message
+  }
+
   if (notification.source_account === this.accountUri) {
-    this.emit('outgoing', notification)
+    this.emit('outgoing', notificationToEmit)
 
     if (this.listenerCount('outgoing_fulfillment') > 0) {
       Promise.all([
-        this.getTransfer(notification.transfers),
-        this.getTransferFulfillment(notification.transfers)
+        this._getTransfer(notification.transfers),
+        this._getTransferFulfillment(notification.transfers)
       ])
       .then(function (results) {
         _this.emit('outgoing_fulfillment', results[0], results[1])
@@ -241,10 +301,10 @@ WalletClient.prototype._handleNotification = function (notification) {
       })
     }
   } else if (notification.destination_account === this.accountUri) {
-    this.emit('incoming', notification)
+    this.emit('incoming', notificationToEmit)
 
     if (this.listenerCount('incoming_transfer') > 0) {
-      this.getTransfer(notification.transfers)
+      this._getTransfer(notification.transfers)
         .then(function (transfer) {
           _this.emit('incoming_transfer', transfer)
         })
@@ -255,7 +315,7 @@ WalletClient.prototype._handleNotification = function (notification) {
   }
 }
 
-WalletClient.prototype.getTransfer = function (transferId) {
+WalletClient.prototype._getTransfer = function (transferId) {
   const _this = this
   return new Promise(function (resolve, reject) {
     request.get(transferId)
@@ -270,7 +330,7 @@ WalletClient.prototype.getTransfer = function (transferId) {
   })
 }
 
-WalletClient.prototype.getTransferFulfillment = function (transferId) {
+WalletClient.prototype._getTransferFulfillment = function (transferId) {
   const fulfillmentUri = transferId + '/fulfillment'
   const _this = this
   return new Promise(function (resolve, reject) {
@@ -287,7 +347,7 @@ WalletClient.prototype.getTransferFulfillment = function (transferId) {
 }
 
   // Returns a promise that resolves to the account details
-WalletClient.webfingerAddress = function (address) {
+WalletClient._webfingerAddress = function (address) {
   const WebFingerConstructor = (typeof window === 'object' && window.WebFinger ? window.WebFinger : WebFinger)
   const webfinger = new WebFingerConstructor()
   return new Promise(function (resolve, reject) {
