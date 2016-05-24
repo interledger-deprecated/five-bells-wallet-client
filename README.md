@@ -4,7 +4,7 @@
 
 ## Installation
 
-`npm install https://github.com/interledger/five-bells-wallet-client.git`
+`npm install five-bells-wallet-client --save`
 
 ## Usage
 
@@ -33,8 +33,8 @@ sender.send({
   destination: 'bob@blue.ilpdemo.org',
   destinationAmount: '0.01',
   message: 'Still love you!',
-  onQuote: (quote) => {
-    console.log('Received a quote; recipient will receive ' + quote.destinationAmount)
+  onQuote: (payment) => {
+    console.log('Received a quote; this will cost us: ' + payment.sourceAmount)
   }
 }).then((payment) => {
   console.log('Payment was ' + (payment.result ? 'successful' : 'not successful'))
@@ -55,8 +55,6 @@ const receiver = new WalletClient({
   address: 'bob@blue.ilpdemo.org',
   password: 'bob'
 })
-
-receiver.connect()
 
 receiver.on('connect', () => {
   console.log('Receiver connected')

@@ -32,6 +32,7 @@ function WalletClient (opts) {
 
   this.address = opts.address
   this.password = opts.password
+  this.autoConnect = (opts.autoConnect !== false ? true : false) // default: true
 
   if (!this.address) {
     throw new Error('Must instantiate WalletClient with five-bells-wallet address')
@@ -50,6 +51,12 @@ function WalletClient (opts) {
   // <destinationAccount>: { <destinationAmount>: { sourceAmount: 10, expiresAt: '<date>' } }
   this.ratesCache = {}
   this.connected = false
+
+  if (this.autoConnect) {
+    this.once('newListener', function () {
+      this.connect()
+    })
+  }
 }
 inherits(WalletClient, EventEmitter)
 
@@ -75,12 +82,15 @@ WalletClient.prototype.connect = function () {
         debug('Attempting to connect to wallet host: ' + host + ' path: ' + parsed.path)
         _this.socket = socket(host, { path: parsed.path })
         _this.socket.on('connect', function () {
-          debug('Connected to wallet API socket.io')
-          _this.socket.emit('unsubscribe', _this.username)
-          _this.socket.emit('subscribe', _this.username)
-          _this.connected = true
-          _this.emit('connect')
-          resolve()
+          // If we're already connected, don't do anything here
+          if (!_this.connected) {
+            debug('Connected to wallet API socket.io')
+            _this.socket.emit('unsubscribe', _this.username)
+            _this.socket.emit('subscribe', _this.username)
+            _this.connected = true
+            _this.emit('connect')
+            resolve()
+          }
         })
         _this.socket.on('disconnect', function () {
           _this.connected = false
