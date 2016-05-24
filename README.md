@@ -5,7 +5,7 @@
 </h1>
 
 <h4 align="center">
-A high-level JS library for sending and receiving [Interledger](https://interledger.org) payments.
+A high-level JS library for sending and receiving <a href="https://interledger.org">Interledger</a> payments.
 </h4>
 
 <br>
