@@ -1,6 +1,14 @@
-# Five Bells Wallet Client :money_with_wings: :zap: :tada:
+<h1 align="center">
+  <a href="https://interledger.org"><img src="ilp_logo.png" width="150"></a>
+  <br>
+  Five Bells Wallet Client
+</h1>
 
-> Payments should work like magic :tada:
+<h4 align="center">
+A high-level JS library for sending and receiving [Interledger](https://interledger.org) payments.
+</h4>
+
+<br>
 
 ## Installation
 
@@ -16,13 +24,11 @@ To use it with a hosted demo wallet, create an account on [red.ilpdemo.org](http
 ### Sending
 
 ```js
-'use strict'
-
 const WalletClient = require('five-bells-wallet-client')
 
 const sender = new WalletClient({
   address: 'alice@red.ilpdemo.org',
-  password: 'alice'
+  password: 'super-secret-password'
 })
 
 sender.on('connect', () => {
@@ -40,20 +46,18 @@ sender.send({
   console.log('Payment was ' + (payment.result ? 'successful' : 'not successful'))
   console.log('')
 }).catch((err) => {
-  console.error(err.stack || err)
+  console.error(err.stack)
 })
 ```
 
 ### Receiving
 
 ```js
-'use strict'
-
 const WalletClient = require('five-bells-wallet-client')
 
 const receiver = new WalletClient({
   address: 'bob@blue.ilpdemo.org',
-  password: 'bob'
+  password: 'ultra-secret-password'
 })
 
 receiver.on('connect', () => {
