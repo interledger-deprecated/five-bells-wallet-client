@@ -1,0 +1,10 @@
+machine:
+  node:
+    version: 4.4.0
+deployment:
+  production:
+    branch: master
+    commands:
+      # Push NPM package if not yet published
+      - mv npmrc-env .npmrc
+      - if [ -z "$(npm info $(npm ls --depth=-1 2>/dev/null | head -1 | cut -f 1 -d " ") 2>/dev/null)" ] ; then npm publish ; fi
