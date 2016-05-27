@@ -26,6 +26,7 @@ const WEBFINGER_RELS = {
  * Client for connecting to the five-bells-wallet
  * @param {String} opts.address Account at five-bells-wallet in the form user@wallet-url.example
  * @param {String} opts.password Account password for five-bells-wallet
+ * @param {Boolean} [autoConnect=true] Subscribe to WebSocket notifications automatically when new event listeners are added
  */
 function WalletClient (opts) {
   EventEmitter.call(this)
@@ -60,6 +61,11 @@ function WalletClient (opts) {
 }
 inherits(WalletClient, EventEmitter)
 
+
+/**
+ * Login to wallet and subscribe to WebSocket notifications
+ * @return {Promise<null>} Resolves once client is subscribed
+ */
 WalletClient.prototype.connect = function () {
   const _this = this
 
@@ -109,10 +115,18 @@ WalletClient.prototype.connect = function () {
   })
 }
 
+/**
+ * Check if the client is currently subscribed to wallet notifications
+ * @return {Boolean}
+ */
 WalletClient.prototype.isConnected = function () {
   return this.connected
 }
 
+/**
+ * Get the ledger account URI corresponding to the user's address
+ * @return {Promise<String>}
+ */
 WalletClient.prototype.getAccount = function () {
   const _this = this
   if (this.accountUri) {
@@ -126,14 +140,31 @@ WalletClient.prototype.getAccount = function () {
   }
 }
 
+/**
+ * Unsubscribe from wallet notifications
+ * @return {null}
+ */
 WalletClient.prototype.disconnect = function () {
   this.socket.emit('unsubscribe', this.username)
 }
 
+/**
+ * Create a new Payment object
+ * @param  {PaymentParams} params Payment parameters
+ * @return {Payment}
+ */
 WalletClient.prototype.payment = function (params) {
   return new Payment(this, params)
 }
 
+/**
+ * Create a new Payment object, get a quote, and send the payment. Resolves when the payment is complete.
+ *
+ * @param  {PaymentParams} params Payment parameters
+ * @param  {Function} [onQuote] Function to call when a quote is received
+ * @param  {Function} [onSent] Function to call when payment is sent (before it is complete)
+ * @return {Promise<Object>} Payment result
+ */
 WalletClient.prototype.send = function (params) {
   const payment = new Payment(this, params)
 
@@ -193,6 +224,12 @@ WalletClient.prototype._findPath = function (params) {
   })
 }
 
+/**
+ * Convert the given destination amount into the local asset
+ * @param  {String|Number} params.destinationAmount The destination amount to convert
+ * @param  {String} params.destinationAccount Destination account to convert amount for
+ * @return {Promise<BigNumber>} Source amount
+ */
 WalletClient.prototype.convertAmount = function (params) {
   const _this = this
   // TODO clean up this caching system
