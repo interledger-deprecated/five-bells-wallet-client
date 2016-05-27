@@ -24,9 +24,15 @@ const WEBFINGER_RELS = {
 
 /**
  * Client for connecting to the five-bells-wallet
+ * @module WalletClient
+ */
+
+/**
+ * @class
+ * @param {Object} opts WalletClient options
  * @param {String} opts.address Account at five-bells-wallet in the form user@wallet-url.example
  * @param {String} opts.password Account password for five-bells-wallet
- * @param {Boolean} [autoConnect=true] Subscribe to WebSocket notifications automatically when new event listeners are added
+ * @param {Boolean} [opts.autoConnect=true] Subscribe to WebSocket notifications automatically when new event listeners are added
  */
 function WalletClient (opts) {
   EventEmitter.call(this)
@@ -150,8 +156,8 @@ WalletClient.prototype.disconnect = function () {
 
 /**
  * Create a new Payment object
- * @param  {PaymentParams} params Payment parameters
- * @return {Payment}
+ * @param  {module:Payment~PaymentParams} params Payment parameters
+ * @return {module:Payment~Payment}
  */
 WalletClient.prototype.payment = function (params) {
   return new Payment(this, params)
@@ -160,9 +166,9 @@ WalletClient.prototype.payment = function (params) {
 /**
  * Create a new Payment object, get a quote, and send the payment. Resolves when the payment is complete.
  *
- * @param  {PaymentParams} params Payment parameters
- * @param  {Function} [onQuote] Function to call when a quote is received
- * @param  {Function} [onSent] Function to call when payment is sent (before it is complete)
+ * @param  {module:Payment~PaymentParams} params Payment parameters
+ * @param  {Function} [params.onQuote] Function to call when a quote is received
+ * @param  {Function} [params.onSent] Function to call when payment is sent (before it is complete)
  * @return {Promise<Object>} Payment result
  */
 WalletClient.prototype.send = function (params) {
@@ -228,7 +234,7 @@ WalletClient.prototype._findPath = function (params) {
  * Convert the given destination amount into the local asset
  * @param  {String|Number} params.destinationAmount The destination amount to convert
  * @param  {String} params.destinationAccount Destination account to convert amount for
- * @return {Promise<BigNumber>} Source amount
+ * @return {Promise<BigNumber>} Source amount as a [BigNumber](https://mikemcl.github.io/bignumber.js/)
  */
 WalletClient.prototype.convertAmount = function (params) {
   const _this = this

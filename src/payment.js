@@ -4,27 +4,34 @@ const EventEmitter = require('events').EventEmitter
 const inherits = require('inherits')
 
 /**
+ * Class for quoting and sending payments
+ * @module  Payment
+ */
+
+/**
  * @typedef {Object} PaymentParams
  * @param {String} destinationAccount Receiver account URI
- * @param {String|Number|BigNumber} [sourceAmount] Either sourceAmount or destinationAmount must be supplied
- * @param {String|Number|BigNumber} [destinationAmount] Either sourceAmount or destinationAmount must be supplied
- * @param {String} [message] Message to send to recipient
+ * @param {String|Number|BigNumber} [sourceAmount=(quoted from destinationAmount)] Either sourceAmount or destinationAmount must be supplied
+ * @param {String|Number|BigNumber} [destinationAmount=(quoted from sourceAmount)] Either sourceAmount or destinationAmount must be supplied
+ * @param {String} [message=""] Message to send to recipient
  */
 
 /**
+ * Quote event
  * @event Payment#quote
- * @type {PaymentParams}
+ * @type {Payment~PaymentParams}
  */
 
 /**
+ * Payment sent event
  * @event Payment#sent
  * @type {Object} Payment result
  */
 
 /**
- * Class for quoting and sending payments
+ * @class
  * @param {WalletClient} walletClient - WalletClient instance used for quoting and sending
- * @param {PaymentParams} params
+ * @param {module:Payment~PaymentParams} params - Payment parameters
  */
 function Payment (walletClient, params) {
   EventEmitter.call(this)
@@ -37,7 +44,7 @@ inherits(Payment, EventEmitter)
 /**
  * Get a quote to fill in either the sourceAmount or destinationAmount, whichever was not given.
  * @fires Payment#quote
- * @return {Promise<PaymentParams>} Original payment params with sourceAmount or destinationAmount filled in
+ * @return {Promise<module:Payment~PaymentParams>} Original payment params with sourceAmount or destinationAmount filled in
  */
 Payment.prototype.quote = function () {
   const _this = this
@@ -69,7 +76,7 @@ Payment.prototype.send = function () {
     .then(function (result) {
       _this.emit('sent', result)
       _this.result = result
-      return _this
+      return result
     })
 }
 

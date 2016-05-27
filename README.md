@@ -69,3 +69,146 @@ receiver.on('incoming', (payment) => {
   console.log(payment.sourceAccount + ' says: ' + payment.message)
 })
 ```
+
+## API Reference
+
+Client for connecting to the five-bells-wallet
+
+<a name="module_WalletClient..WalletClient"></a>
+
+### WalletClient~WalletClient
+**Kind**: inner class of <code>[WalletClient](#module_WalletClient)</code>  
+
+* [~WalletClient](#module_WalletClient..WalletClient)
+    * [new WalletClient(opts)](#new_module_WalletClient..WalletClient_new)
+    * [.connect()](#module_WalletClient..WalletClient+connect) ⇒ <code>Promise.&lt;null&gt;</code>
+    * [.isConnected()](#module_WalletClient..WalletClient+isConnected) ⇒ <code>Boolean</code>
+    * [.getAccount()](#module_WalletClient..WalletClient+getAccount) ⇒ <code>Promise.&lt;String&gt;</code>
+    * [.disconnect()](#module_WalletClient..WalletClient+disconnect) ⇒ <code>null</code>
+    * [.payment(params)](#module_WalletClient..WalletClient+payment) ⇒ <code>[Payment](#module_Payment..Payment)</code>
+    * [.send(params)](#module_WalletClient..WalletClient+send) ⇒ <code>Promise.&lt;Object&gt;</code>
+    * [.convertAmount()](#module_WalletClient..WalletClient+convertAmount) ⇒ <code>Promise.&lt;BigNumber&gt;</code>
+
+<a name="new_module_WalletClient..WalletClient_new"></a>
+
+#### new WalletClient(opts)
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| opts | <code>Object</code> |  | WalletClient options |
+| opts.address | <code>String</code> |  | Account at five-bells-wallet in the form user@wallet-url.example |
+| opts.password | <code>String</code> |  | Account password for five-bells-wallet |
+| [opts.autoConnect] | <code>Boolean</code> | <code>true</code> | Subscribe to WebSocket notifications automatically when new event listeners are added |
+
+<a name="module_WalletClient..WalletClient+connect"></a>
+
+#### walletClient.connect() ⇒ <code>Promise.&lt;null&gt;</code>
+Login to wallet and subscribe to WebSocket notifications
+
+**Kind**: instance method of <code>[WalletClient](#module_WalletClient..WalletClient)</code>  
+**Returns**: <code>Promise.&lt;null&gt;</code> - Resolves once client is subscribed  
+<a name="module_WalletClient..WalletClient+isConnected"></a>
+
+#### walletClient.isConnected() ⇒ <code>Boolean</code>
+Check if the client is currently subscribed to wallet notifications
+
+**Kind**: instance method of <code>[WalletClient](#module_WalletClient..WalletClient)</code>  
+<a name="module_WalletClient..WalletClient+getAccount"></a>
+
+#### walletClient.getAccount() ⇒ <code>Promise.&lt;String&gt;</code>
+Get the ledger account URI corresponding to the user's address
+
+**Kind**: instance method of <code>[WalletClient](#module_WalletClient..WalletClient)</code>  
+<a name="module_WalletClient..WalletClient+disconnect"></a>
+
+#### walletClient.disconnect() ⇒ <code>null</code>
+Unsubscribe from wallet notifications
+
+**Kind**: instance method of <code>[WalletClient](#module_WalletClient..WalletClient)</code>  
+<a name="module_WalletClient..WalletClient+payment"></a>
+
+#### walletClient.payment(params) ⇒ <code>[Payment](#module_Payment..Payment)</code>
+Create a new Payment object
+
+**Kind**: instance method of <code>[WalletClient](#module_WalletClient..WalletClient)</code>  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| params | <code>[PaymentParams](#module_Payment..PaymentParams)</code> | Payment parameters |
+
+<a name="module_WalletClient..WalletClient+send"></a>
+
+#### walletClient.send(params) ⇒ <code>Promise.&lt;Object&gt;</code>
+Create a new Payment object, get a quote, and send the payment. Resolves when the payment is complete.
+
+**Kind**: instance method of <code>[WalletClient](#module_WalletClient..WalletClient)</code>  
+**Returns**: <code>Promise.&lt;Object&gt;</code> - Payment result  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| params | <code>[PaymentParams](#module_Payment..PaymentParams)</code> | Payment parameters |
+| [params.onQuote] | <code>function</code> | Function to call when a quote is received |
+| [params.onSent] | <code>function</code> | Function to call when payment is sent (before it is complete) |
+
+<a name="module_WalletClient..WalletClient+convertAmount"></a>
+
+#### walletClient.convertAmount() ⇒ <code>Promise.&lt;BigNumber&gt;</code>
+Convert the given destination amount into the local asset
+
+**Kind**: instance method of <code>[WalletClient](#module_WalletClient..WalletClient)</code>  
+**Returns**: <code>Promise.&lt;BigNumber&gt;</code> - Source amount as a [BigNumber](https://mikemcl.github.io/bignumber.js/)  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| params.destinationAmount | <code>String</code> &#124; <code>Number</code> | The destination amount to convert |
+| params.destinationAccount | <code>String</code> | Destination account to convert amount for |
+
+
+Class for quoting and sending payments
+
+<a name="module_Payment..Payment"></a>
+
+### Payment~Payment
+**Kind**: inner class of <code>[Payment](#module_Payment)</code>  
+
+* [~Payment](#module_Payment..Payment)
+    * [new Payment(walletClient, params)](#new_module_Payment..Payment_new)
+    * [.quote()](#module_Payment..Payment+quote) ⇒ <code>[Promise.&lt;PaymentParams&gt;](#module_Payment..PaymentParams)</code>
+    * [.send()](#module_Payment..Payment+send) ⇒ <code>Promise.&lt;Object&gt;</code>
+
+<a name="new_module_Payment..Payment_new"></a>
+
+#### new Payment(walletClient, params)
+
+| Param | Type | Description |
+| --- | --- | --- |
+| walletClient | <code>WalletClient</code> | WalletClient instance used for quoting and sending |
+| params | <code>[PaymentParams](#module_Payment..PaymentParams)</code> | Payment parameters |
+
+<a name="module_Payment..Payment+quote"></a>
+
+#### payment.quote() ⇒ <code>[Promise.&lt;PaymentParams&gt;](#module_Payment..PaymentParams)</code>
+Get a quote to fill in either the sourceAmount or destinationAmount, whichever was not given.
+
+**Kind**: instance method of <code>[Payment](#module_Payment..Payment)</code>  
+**Returns**: <code>[Promise.&lt;PaymentParams&gt;](#module_Payment..PaymentParams)</code> - Original payment params with sourceAmount or destinationAmount filled in  
+**Emits**: <code>[quote](#Payment+event_quote)</code>  
+<a name="module_Payment..Payment+send"></a>
+
+#### payment.send() ⇒ <code>Promise.&lt;Object&gt;</code>
+Execute the payment
+
+**Kind**: instance method of <code>[Payment](#module_Payment..Payment)</code>  
+**Returns**: <code>Promise.&lt;Object&gt;</code> - Resolves when the payment is complete  
+**Emits**: <code>[sent](#Payment+event_sent)</code>  
+<a name="module_Payment..PaymentParams"></a>
+
+### Payment~PaymentParams : <code>Object</code>
+**Kind**: inner typedef of <code>[Payment](#module_Payment)</code>  
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| destinationAccount | <code>String</code> |  | Receiver account URI |
+| [sourceAmount] | <code>String</code> &#124; <code>Number</code> &#124; <code>BigNumber</code> | <code>(quoted from destinationAmount)</code> | Either sourceAmount or destinationAmount must be supplied |
+| [destinationAmount] | <code>String</code> &#124; <code>Number</code> &#124; <code>BigNumber</code> | <code>(quoted from sourceAmount)</code> | Either sourceAmount or destinationAmount must be supplied |
+| [message] | <code>String</code> | <code>&quot;&quot;</code> | Message to send to recipient |
