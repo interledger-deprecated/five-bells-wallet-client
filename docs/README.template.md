@@ -10,6 +10,15 @@ A high-level JS library for sending and receiving <a href="https://interledger.o
 
 <br>
 
+[![npm][npm-image]][npm-url] [![standard][standard-image]][standard-url] [![circle][circle-image]][circle-url]
+
+[npm-image]: https://img.shields.io/npm/v/five-bells-wallet-client.svg?style=flat
+[npm-url]: https://npmjs.org/package/five-bells-wallet-client
+[standard-image]: https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat
+[standard-url]: http://standardjs.com/
+[circle-image]: https://img.shields.io/circleci/project/interledger/five-bells-wallet-client/master.svg?style=flat
+[circle-url]: https://circleci.com/gh/interledger/five-bells-wallet-client
+
 ## Installation
 
 `npm install five-bells-wallet-client --save`

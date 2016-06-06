@@ -39,7 +39,7 @@ function WalletClient (opts) {
 
   this.address = opts.address
   this.password = opts.password
-  this.autoConnect = (opts.autoConnect !== false ? true : false) // default: true
+  this.autoConnect = opts.autoConnect !== false
 
   if (!this.address) {
     throw new Error('Must instantiate WalletClient with five-bells-wallet address')
@@ -66,7 +66,6 @@ function WalletClient (opts) {
   }
 }
 inherits(WalletClient, EventEmitter)
-
 
 /**
  * Login to wallet and subscribe to WebSocket notifications
