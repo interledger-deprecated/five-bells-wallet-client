@@ -43,7 +43,7 @@ sender.send({
     console.log('Received a quote; this will cost us: ' + payment.sourceAmount)
   }
 }).then((payment) => {
-  console.log('Payment was ' + (payment.result ? 'successful' : 'not successful'))
+  console.log('Sent payment:', payment)
   console.log('')
 }).catch((err) => {
   console.error(err.stack)

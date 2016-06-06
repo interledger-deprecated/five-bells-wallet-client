@@ -217,14 +217,12 @@ WalletClient.prototype._findPath = function (params) {
 
         let result = {}
         if (!params.sourceAmount) {
-          result.sourceAmount = res.body.source_amount || res.body.sourceAmount || res.body[0].source_transfers[0].debits[0].amount
+          result.sourceAmount = res.body.debits[0].amount
         }
         if (!params.destinationAmount) {
-          result.destinationAmount = res.body.destination_amount || res.body.destinationAmount || res.body[res.body.length - 1].destination_transfers[0].credits[0].amount
+          result.destinationAmount = res.body.credits[0].memo.ilp_header.amount
         }
-        if (Array.isArray(res.body)) {
-          result.path = res.body
-        }
+        result.path = res.body
         resolve(result)
       })
   })
