@@ -171,7 +171,7 @@ WalletClient.prototype.payment = function (params) {
  * @return {Promise<Object>} Payment result
  */
 WalletClient.prototype.send = function (params) {
-  const payment = new Payment(this, params)
+  const payment = this.payment(params)
 
   if (typeof params.onQuote === 'function') {
     payment.on('quote', params.onQuote)
@@ -214,13 +214,16 @@ WalletClient.prototype._findPath = function (params) {
           return reject(err || res.body)
         }
 
+        debug('_findPath result:', res.body)
+
         let result = {}
         if (!params.sourceAmount) {
-          result.sourceAmount = res.body.debits[0].amount
+          result.sourceAmount = res.body.source_amount || res.body.debits[0].amount
         }
         if (!params.destinationAmount) {
-          result.destinationAmount = res.body.credits[0].memo.ilp_header.amount
+          result.destinationAmount = res.body.destination_amount || res.body.credits[0].memo.ilp_header.amount
         }
+        // We use the transfer as the "path"
         result.path = res.body
         resolve(result)
       })
@@ -251,33 +254,27 @@ WalletClient.prototype.convertAmount = function (params) {
     }
   }
 
-  _this.findPath(params)
-  .then(function (path) {
-    if (Array.isArray(path) && path.length > 0) {
-      // TODO update this for the latest sender
-      const firstPayment = path[0]
-      const sourceAmount = firstPayment.source_transfers[0].debits[0].amount
-      debug(params.destinationAmount + ' on ' + path[path.length - 1].destination_transfers[0].ledger +
-        ' is equivalent to ' + sourceAmount + ' on ' + firstPayment.source_transfers[0].ledger)
+  return _this._findPath(params)
+    .then(function (result) {
+      if (result) {
+        // TODO cache rate by ledger instead of by account
+        if (!_this.ratesCache[params.destinationAccount]) {
+          _this.ratesCache[params.destinationAccount] = {}
+        }
+        _this.ratesCache[params.destinationAccount][params.destinationAmount] = {
+          sourceAmount: new BigNumber(result.sourceAmount),
+          expiresAt: moment().add(RATE_CACHE_REFRESH, 'milliseconds')
+        }
 
-      // TODO cache rate by ledger instead of by account
-      if (!_this.ratesCache[params.destinationAccount]) {
-        _this.ratesCache[params.destinationAccount] = {}
+        return result.sourceAmount
+      } else {
+        throw new Error('No path found %o', path)
       }
-      _this.ratesCache[params.destinationAccount][params.destinationAmount] = {
-        sourceAmount: new BigNumber(sourceAmount),
-        expiresAt: moment().add(RATE_CACHE_REFRESH, 'milliseconds')
-      }
-
-      return sourceAmount
-    } else {
-      throw new Error('No path found %o', path)
-    }
-  })
-  .catch(function (err) {
-    debug('Error finding path %o %o', params, err)
-    throw err
-  })
+    })
+    .catch(function (err) {
+      debug('Error finding path %o %o', params, err)
+      throw err
+    })
 }
 
 WalletClient.prototype._sendPayment = function (params) {
