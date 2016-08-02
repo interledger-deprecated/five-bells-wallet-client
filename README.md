@@ -37,7 +37,7 @@ const WalletClient = require('five-bells-wallet-client')
 
 const sender = new WalletClient({
   address: 'alice@red.ilpdemo.org',
-  password: 'super-secret-password'
+  password: 'alice'
 })
 
 sender.on('connect', () => {
@@ -66,7 +66,7 @@ const WalletClient = require('five-bells-wallet-client')
 
 const receiver = new WalletClient({
   address: 'bob@blue.ilpdemo.org',
-  password: 'ultra-secret-password'
+  password: 'bobbob'
 })
 
 receiver.on('connect', () => {
@@ -76,6 +76,49 @@ receiver.on('connect', () => {
 receiver.on('incoming', (payment) => {
   console.log('Received ' + payment.destinationAmount + ' bucks!')
   console.log(payment.sourceAccount + ' says: ' + payment.message)
+})
+```
+
+### Combined Example
+
+```js
+const WalletClient = require('five-bells-wallet-client')
+
+const sender = new WalletClient({
+  address: 'alice@red.ilpdemo.org',
+  password: 'alice'
+})
+
+const receiver = new WalletClient({
+  address: 'bob@blue.ilpdemo.org',
+  password: 'bobbob'
+})
+
+sender.on('connect', () => {
+  console.log('Sender connected')
+})
+
+receiver.on('connect', () => {
+  console.log('Receiver connected')
+})
+
+receiver.on('incoming', (payment) => {
+  console.log('Received ' + payment.destinationAmount + ' bucks!')
+  console.log(payment.sourceAccount + ' says: ' + payment.message)
+})
+
+sender.send({
+  destination: 'bob@blue.ilpdemo.org',
+  destinationAmount: '0.01',
+  message: 'Still love you!',
+  onQuote: (payment) => {
+    console.log('Received a quote; this will cost us: ' + payment.sourceAmount)
+  }
+}).then((payment) => {
+  console.log('Sent payment:', payment)
+  console.log('')
+}).catch((err) => {
+  console.error(err.stack)
 })
 ```
 
