@@ -16,8 +16,8 @@ A high-level JS library for sending and receiving <a href="https://interledger.o
 [npm-url]: https://npmjs.org/package/five-bells-wallet-client
 [standard-image]: https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat
 [standard-url]: http://standardjs.com/
-[circle-image]: https://img.shields.io/circleci/project/interledger/five-bells-wallet-client/master.svg?style=flat
-[circle-url]: https://circleci.com/gh/interledger/five-bells-wallet-client
+[circle-image]: https://img.shields.io/circleci/project/interledgerjs/five-bells-wallet-client/master.svg?style=flat
+[circle-url]: https://circleci.com/gh/interledgerjs/five-bells-wallet-client
 
 ## Installation
 
@@ -25,7 +25,7 @@ A high-level JS library for sending and receiving <a href="https://interledger.o
 
 ## Usage
 
-This is a client for the [`five-bells-wallet`](https://github.com/interledger/five-bells-wallet).
+This is a client for the [`five-bells-wallet`](https://github.com/interledgerjs/five-bells-wallet).
 
 To use it with a hosted demo wallet, create an account on [red.ilpdemo.org](https://red.ilpdemo.org) or [blue.ilpdemo.org](https://blue.ilpdemo.org) (it doesn't matter which because they're connected via the [Interledger Protocol](https://interledger.org)!).
 
