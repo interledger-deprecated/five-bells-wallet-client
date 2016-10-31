@@ -17,7 +17,7 @@
     "payment"
   ],
   "author": "Evan Schwartz <evan@ripple.com>",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "dependencies": {
     "bignumber.js": "^2.3.0",
     "inherits": "^2.0.1",
