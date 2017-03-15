@@ -1,3 +1,5 @@
+# DEPRECATED - Use the [`ilp` module](https://github.com/interledgerjs/ilp) instead
+
 <h1 align="center">
   <a href="https://interledger.org"><img src="ilp_logo.png" width="150"></a>
   <br>
